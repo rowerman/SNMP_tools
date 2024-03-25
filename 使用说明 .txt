@@ -1,1 +1,0 @@
-Snmputil工具包括snmputil.exe和snmputilg.exe，是测试、学习snmp非常不错的小工具，可以用来扫Pulic字符串，支持xp、win7、win10系统，有需要的赶快下载吧！
