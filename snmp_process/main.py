@@ -5,10 +5,11 @@ import time
 
 import IPy
 from PyQt5.QtWidgets import QApplication, QMainWindow, QMessageBox, QVBoxLayout, QGroupBox, QHeaderView, QTableWidgetItem
-from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt5.QtCore import QThread, pyqtSignal, Qt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
+from pyqt5_plugins.examplebuttonplugin import QtGui
 
 from GUI import Gui
 import funcs
@@ -49,9 +50,15 @@ class MonitorThread(QThread):
             download.append(res)
             res_upload = float(res_upload)/2000
             upload.append(res)
-            self.window.ui.label_30.setText(str(res_upload)+"MB/s")
-            self.window.ui.label_31.setText(str(res_download)+"MB/s")
-
+            if res_upload > 1000:
+                self.window.ui.label_30.setText(str(res_upload/1000)+"MB/s")
+            else:
+                self.window.ui.label_30.setText(str(res_upload) + "KB/s")
+            if res_download > 1000:
+                self.window.ui.label_31.setText(str(res_download/1000)+"MB/s")
+            else:
+                self.window.ui.label_31.setText(str(res_download) + "KB/s")
+                
             self.window.update_matplotlib_figure(self.window.ui.groupBox_4, cpu)
             self.window.update_matplotlib_figure(self.window.ui.groupBox_5, RAM)
             self.window.update_matplotlib_figure(self.window.ui.groupBox_6, disk)
@@ -121,6 +128,11 @@ class MyMainWindow(QMainWindow):
         self.ui.lineEdit_4.setReadOnly(True)
         self.ui.label_8.setText("No work~")
         
+        self.ui.label_35.setScaledContents(True)  # 设置scaledContents属性为True
+        pixmap = QtGui.QPixmap('./pics/logo.png')
+        pixmap = pixmap.scaled(self.ui.label_35.width(), self.ui.label_35.height(), Qt.KeepAspectRatio)
+        self.ui.label_35.setPixmap(pixmap)
+        
         self.ui.pushButton.clicked.connect(lambda : self.ui.stackedWidget.setCurrentIndex(0))
         self.ui.pushButton_2.clicked.connect(lambda: self.ui.stackedWidget.setCurrentIndex(1))
         self.ui.pushButton_3.clicked.connect(lambda : self.ui.stackedWidget.setCurrentIndex(2))
@@ -149,12 +161,15 @@ class MyMainWindow(QMainWindow):
         self.ui.pushButton_7.clicked.connect(lambda: self.warnRAM(self.ui.comboBox_3, self.ui.lineEdit_12))
     
     def closeEvent(self, event):
-        self.monitor_thread.stop()
-        self.monitor_thread.wait()
-        self.thread_cpu.stop()
-        self.thread_cpu.wait()
-        self.thread_ram.stop()
-        self.thread_ram.wait()
+        if hasattr(self, 'monitor_thread') and self.monitor_thread.isRunning():
+            self.monitor_thread.stop()
+            self.monitor_thread.wait()
+        if hasattr(self,'thread_cpu') and self.thread_cpu.isRunning():
+            self.thread_cpu.stop()
+            self.thread_cpu.wait()
+        if hasattr(self,'thread_ram') and self.thread_ram.isRunning():
+            self.thread_ram.stop()
+            self.thread_ram.wait()
         
         super().closeEvent(event)
         
@@ -182,7 +197,6 @@ class MyMainWindow(QMainWindow):
             QMessageBox.information(self, "提示", "请输入正确的IP地址")
             return
         
-        # 为每个QGroupBox创建一个matplotlib图像和一个导航工具栏
         for groupBox in self.groupBoxes:
             self.create_matplotlib_figure(groupBox)
         
@@ -205,6 +219,7 @@ class MyMainWindow(QMainWindow):
         
         # 在matplotlib图像上绘制一个空的线条
         ax = figure.add_subplot(111)
+        ax.get_xaxis().set_ticklabels([])
         ax.get_yaxis().set_visible(False)  # 隐藏y轴
         ax.plot([])
     
@@ -309,6 +324,7 @@ class MyMainWindow(QMainWindow):
     def warnCpu(self, ComboBox, LineEdit):
         des_ip = LineEdit.text()
         level = ComboBox.currentText()
+        
         self.thread_cpu = WarnCpu(self, des_ip, level)
         self.thread_cpu.cpu_overload.connect(self.show_CPUwarning)  # 连接信号到槽
         self.thread_cpu.start()
@@ -319,6 +335,7 @@ class MyMainWindow(QMainWindow):
     def warnRAM(self,ComboBox,LineEdit):
         des_ip = LineEdit.text()
         level = ComboBox.currentText()
+        
         self.thread_ram = WarnRAM(self,des_ip,level)
         self.thread_ram.RAM_overload.connect(self.show_RAMwarning)  # 连接信号到槽
         self.thread_ram.start()
